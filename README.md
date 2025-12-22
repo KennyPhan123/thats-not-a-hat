@@ -1,112 +1,96 @@
-# 🎩 That's Not a Hat! - Online Card Game
+# That's Not a Hat
 
-An interactive online multiplayer card game for 3-8 players. Pass cards around, remember what you have, and try not to get penalties!
+An interactive online card game for 2-8 players. A sandbox-style implementation where players interact freely, just like in real life.
 
-## 🎮 How to Play
+## Play Now
 
-1. **Create/Join Room**: Enter your name and create a room or join with a code
-2. **Draw Cards**: Click/tap the deck in the center to draw a card
-3. **Flip Cards**: Double-click/tap your card to flip it (face ↔ back)
-4. **Pass Cards**: Drag your card to another player's empty slot
-5. **Swap Cards**: Drag to rearrange your top/bottom cards
-6. **Penalty**: Drag your card to the penalty zone at the bottom
-7. **Game Over**: First player to get 3 penalties loses!
+**Live Game:** https://thats-not-a-hat-server.kennyphan123.partykit.dev
 
-## 🚀 Quick Start (Local Development)
+## About the Game
+
+That's Not a Hat is a memory and bluffing card game. Players draw cards, remember them, and pass them to other players face-down. The challenge is to remember what card you're receiving - or convincingly pretend you do!
+
+### Features
+
+- Real-time multiplayer (2-8 players)
+- Drag and drop cards between players
+- Flip cards to see/hide them
+- Discard pile with history tracking
+- Mobile and desktop responsive
+- No account required - just share the room code
+
+## How to Play
+
+1. **Create or Join a Game**
+   - One player creates a room and shares the 4-letter code
+   - Other players join using the code
+
+2. **Draw Cards**
+   - Click the deck to draw a card to your hand
+   - First card goes to the bottom slot, second to the top
+
+3. **Manage Your Cards**
+   - Click your cards to flip them face-up/face-down
+   - Drag cards to other players' empty slots
+   - Drag cards to the Discard zone to discard (adds a penalty)
+
+4. **Win Condition**
+   - A player with 3 penalties loses the game
+
+## Tech Stack
+
+- **Frontend:** Vanilla JavaScript + Vite
+- **Backend:** PartyKit (WebSocket server)
+- **Hosting:** PartyKit Cloud
+
+## Local Development
+
+### Prerequisites
+
+- Node.js 18+
+- npm
+
+### Setup
 
 ```bash
 # Install dependencies
 npm install
 
-# Start dev server
+# Run development server
 npm run dev
 
-# Open http://localhost:3000
+# Run PartyKit server locally
+npx partykit dev
 ```
 
-The game includes **mock mode** for local testing - it will auto-start with dummy players.
-
-## 🌐 Deployment
-
-### Step 1: Deploy PartyKit Server
+### Deploy
 
 ```bash
-# Login to PartyKit (creates account if needed)
-npx partykit login
+# Build frontend
+npm run build
 
-# Deploy server
+# Deploy to PartyKit Cloud
 npx partykit deploy
 ```
 
-After deployment, you'll get a URL like: `your-project.username.partykit.dev`
-
-### Step 2: Update Configuration
-
-Edit `src/main.js` and update the PARTYKIT_HOST:
-
-```javascript
-const PARTYKIT_HOST = 'your-project.username.partykit.dev';
-```
-
-Or set environment variable `VITE_PARTYKIT_HOST` during build.
-
-### Step 3: Deploy to Vercel/Netlify
-
-**Vercel:**
-```bash
-npm run build
-npx vercel --prod
-```
-
-**Netlify:**
-```bash
-npm run build
-npx netlify deploy --prod --dir=dist
-```
-
-Or connect your GitHub repo for automatic deployments.
-
-## 📁 Project Structure
+## Project Structure
 
 ```
-├── index.html          # Main HTML
+├── index.html          # Main HTML file
 ├── src/
-│   ├── main.js         # Entry point & game logic
+│   ├── main.js         # Client-side game logic
 │   ├── game.js         # Game state management
+│   ├── player.js       # Player rendering
 │   ├── card.js         # Card component
-│   ├── drag.js         # Touch/mouse drag handling
-│   ├── player.js       # Player slots
-│   ├── table.js        # Table & deck rendering
-│   └── styles.css      # Pastel theme
+│   ├── drag.js         # Drag and drop handling
+│   └── styles.css      # Styling
 ├── party/
-│   └── server.js       # PartyKit multiplayer server
-└── public/
-    └── cards/          # Card images
-        ├── items/      # 110 item cards
-        └── backs/      # Black & white backs
+│   └── server.js       # PartyKit WebSocket server
+├── public/
+│   └── cards/          # Card images
+└── partykit.json       # PartyKit configuration
 ```
 
-## 🎨 Features
+## License
 
-- ✅ Pastel color theme
-- ✅ 3D card flip animation
-- ✅ Touch & mouse drag support
-- ✅ Real-time multiplayer sync
-- ✅ Responsive design (mobile-friendly)
-- ✅ Penalty tracking
-- ✅ Game reset on game over
-
-## 📱 Controls
-
-| Action | Desktop | Mobile |
-|--------|---------|--------|
-| Draw card | Click deck | Tap deck |
-| Flip card | Double-click | Double-tap |
-| Move card | Drag | Touch drag |
-| Discard | Drag to bottom | Drag to bottom |
-
-## 🔧 Tech Stack
-
-- **Frontend**: Vanilla JS + Vite
-- **Realtime**: PartyKit
-- **Styling**: CSS (pastel theme)
+MIT
