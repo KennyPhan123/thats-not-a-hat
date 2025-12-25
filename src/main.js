@@ -17,7 +17,9 @@ const state = {
     isHost: false,
     gameState: new GameState(),
     dragHandler: null,
-    discardHistory: [] // Track discarded cards
+    discardHistory: [], // Track discarded cards
+    hardMode: false,
+    slotCount: 2
 };
 
 // DOM Elements
@@ -46,7 +48,9 @@ const elements = {
     penaltyZone: document.getElementById('penaltyZone'),
     gameOverModal: document.getElementById('gameOverModal'),
     gameOverMessage: document.getElementById('gameOverMessage'),
-    playAgain: document.getElementById('playAgain')
+    playAgain: document.getElementById('playAgain'),
+    hardModeToggle: document.getElementById('hardModeToggle'),
+    hardModeCheckbox: document.getElementById('hardModeCheckbox')
 };
 
 function init() {
@@ -124,6 +128,16 @@ function setupLobbyHandlers() {
 
     // Copy button
     document.getElementById('copyCodeBtn')?.addEventListener('click', copyRoomCode);
+
+    // Hard mode toggle (host only)
+    elements.hardModeCheckbox?.addEventListener('change', (e) => {
+        if (state.socket && state.isHost) {
+            state.socket.send(JSON.stringify({
+                type: 'toggleHardMode',
+                enabled: e.target.checked
+            }));
+        }
+    });
 }
 
 // Copy room code to clipboard
@@ -164,6 +178,14 @@ function connectToRoom() {
             name: state.playerName
         }));
         showRoomInfo();
+
+        // Start heartbeat ping every 30 seconds to keep connection alive
+        if (state.pingInterval) clearInterval(state.pingInterval);
+        state.pingInterval = setInterval(() => {
+            if (state.socket && state.socket.readyState === WebSocket.OPEN) {
+                state.socket.send(JSON.stringify({ type: 'ping' }));
+            }
+        }, 30000);
     });
 
     state.socket.addEventListener('message', (event) => {
@@ -172,12 +194,18 @@ function connectToRoom() {
 
     state.socket.addEventListener('error', (error) => {
         console.error('Connection error:', error);
-        alert('Cannot connect to server. Make sure PartyKit is running.');
     });
 
     state.socket.addEventListener('close', () => {
-        alert('Disconnected from server');
-        location.reload();
+        // Clear ping interval
+        if (state.pingInterval) {
+            clearInterval(state.pingInterval);
+            state.pingInterval = null;
+        }
+        // PartySocket will auto-reconnect, only show alert if game has started
+        if (state.gameState.gameStarted) {
+            console.log('Connection lost, attempting to reconnect...');
+        }
     });
 }
 
@@ -197,12 +225,16 @@ function updatePlayerList() {
         .map(p => `<span class="player-tag${p.id === state.gameState.hostId ? ' host' : ''}">${p.name}${p.id === state.gameState.hostId ? ' (Host)' : ''}</span>`)
         .join('');
 
-    // Show start button for host if enough players (minimum 2)
+    // Show start button and hard mode toggle for host if enough players (minimum 2)
     if (state.isHost && players.length >= 2) {
         elements.startGame.classList.remove('hidden');
+        elements.hardModeToggle.classList.remove('hidden');
         elements.waitingText.classList.add('hidden');
+    } else if (state.isHost) {
+        elements.hardModeToggle.classList.remove('hidden');
     } else if (!state.isHost) {
         elements.waitingText.classList.remove('hidden');
+        elements.hardModeToggle.classList.add('hidden');
     }
 }
 
@@ -245,6 +277,8 @@ function handleServerMessage(data) {
             state.gameState.deck = data.deck;
             state.gameState.players = data.players;
             state.gameState.gameStarted = true;
+            state.hardMode = data.hardMode || false;
+            state.slotCount = data.slotCount || 2;
             startGame();
             break;
 
@@ -273,8 +307,20 @@ function handleServerMessage(data) {
             state.gameState.deck = data.deck;
             state.gameState.players = data.players;
             state.discardHistory = data.discardHistory || [];
+            state.hardMode = data.hardMode || false;
+            state.slotCount = data.slotCount || 2;
             elements.gameOverModal.classList.add('hidden');
             renderGame();
+            break;
+
+        case 'hardModeChanged':
+            state.hardMode = data.hardMode;
+            state.slotCount = data.slotCount;
+            state.gameState.players = data.players;
+            // Update checkbox state
+            if (elements.hardModeCheckbox) {
+                elements.hardModeCheckbox.checked = data.hardMode;
+            }
             break;
 
         case 'error':
@@ -303,7 +349,8 @@ function setupDragHandler() {
 function renderGame() {
     renderDeck();
     renderPlayers(state.gameState, elements.playersContainer, {
-        onFlip: handleFlipCard
+        onFlip: handleFlipCard,
+        slotCount: state.slotCount
     });
 }
 
@@ -354,6 +401,30 @@ function setupGameHandlers() {
 
     // Setup discard history modal
     setupDiscardHistoryModal();
+
+    // Fullscreen toggle button
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    fullscreenBtn?.addEventListener('click', toggleFullscreen);
+}
+
+// Toggle fullscreen mode
+function toggleFullscreen() {
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        // Enter fullscreen
+        const elem = document.documentElement;
+        if (elem.requestFullscreen) {
+            elem.requestFullscreen();
+        } else if (elem.webkitRequestFullscreen) {
+            elem.webkitRequestFullscreen(); // Safari/iOS
+        }
+    } else {
+        // Exit fullscreen
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen(); // Safari/iOS
+        }
+    }
 }
 
 // Setup discard history modal

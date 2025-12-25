@@ -19,7 +19,9 @@ export default class GameServer {
             deck: [],
             discardHistory: [], // Track all discarded cards
             gameStarted: false,
-            hostId: null
+            hostId: null,
+            hardMode: false, // Hard mode: 3 slots instead of 2
+            slotCount: 2 // Default 2 slots
         };
     }
 
@@ -62,6 +64,13 @@ export default class GameServer {
                 case 'reset':
                     this.handleReset(sender);
                     break;
+                case 'ping':
+                    // Heartbeat - respond with pong to keep connection alive
+                    sender.send(JSON.stringify({ type: 'pong' }));
+                    break;
+                case 'toggleHardMode':
+                    this.handleToggleHardMode(data, sender);
+                    break;
             }
         } catch (e) {
             console.error('Message parse error:', e);
@@ -85,10 +94,12 @@ export default class GameServer {
 
         const existingPlayer = this.gameState.players.find(p => p.id === sender.id);
         if (!existingPlayer) {
+            // Create slots array based on current slot count
+            const slots = new Array(this.gameState.slotCount).fill(null);
             const player = {
                 id: sender.id,
                 name: data.name,
-                cards: [null, null], // [slot0, slot1]
+                cards: slots,
                 penalties: 0
             };
             this.gameState.players.push(player);
@@ -139,7 +150,9 @@ export default class GameServer {
         this.broadcast({
             type: 'gameStarted',
             deck: this.gameState.deck,
-            players: this.gameState.players
+            players: this.gameState.players,
+            hardMode: this.gameState.hardMode,
+            slotCount: this.gameState.slotCount
         });
     }
 
@@ -164,9 +177,9 @@ export default class GameServer {
         const player = this.gameState.players.find(p => p.id === sender.id);
         if (!player) return;
 
-        // Check if player has space (at least one empty slot)
-        const hasEmptySlot = player.cards[0] === null || player.cards[1] === null;
-        if (!hasEmptySlot) {
+        // Find first empty slot
+        const emptySlotIndex = player.cards.findIndex(c => c === null);
+        if (emptySlotIndex === -1) {
             sender.send(JSON.stringify({ type: 'error', message: 'No empty slot!' }));
             return;
         }
@@ -174,25 +187,13 @@ export default class GameServer {
         const card = this.gameState.deck.pop();
         card.isFlipped = false; // Face up when drawn
 
-        // First card goes to slot 0 (bottom), second card to slot 1 (top)
-        let slotIndex;
-        if (player.cards[0] === null) {
-            // Slot 0 empty - put card there (bottom)
-            slotIndex = 0;
-        } else if (player.cards[1] === null) {
-            // Slot 0 has card, slot 1 empty - put card in slot 1 (top)
-            slotIndex = 1;
-        } else {
-            // Both slots full - shouldn't happen due to check above
-            return;
-        }
-
-        player.cards[slotIndex] = card;
+        // Put card in the first empty slot (they stack from bottom up)
+        player.cards[emptySlotIndex] = card;
 
         this.broadcast({
             type: 'cardDrawn',
             playerId: sender.id,
-            slotIndex: slotIndex,
+            slotIndex: emptySlotIndex,
             card: card,
             deckCount: this.gameState.deck.length,
             topCard: this.gameState.deck.length > 0 ? this.gameState.deck[this.gameState.deck.length - 1] : null,
@@ -244,13 +245,40 @@ export default class GameServer {
         });
     }
 
-    // Normalize cards: if only 1 card, it should be in slot 0 (bottom)
+    // Normalize cards: shift all cards to lowest slots (bottom-up stacking)
     normalizePlayerCards(player) {
-        if (player.cards[0] === null && player.cards[1] !== null) {
-            // Shift card from slot 1 to slot 0
-            player.cards[0] = player.cards[1];
-            player.cards[1] = null;
+        // Collect all non-null cards
+        const cards = player.cards.filter(c => c !== null);
+        // Fill slots from bottom up
+        for (let i = 0; i < player.cards.length; i++) {
+            player.cards[i] = cards[i] || null;
         }
+    }
+
+    // Toggle hard mode (host only, before game starts)
+    handleToggleHardMode(data, sender) {
+        if (sender.id !== this.gameState.hostId) return;
+        if (this.gameState.gameStarted) return;
+
+        this.gameState.hardMode = data.enabled;
+        this.gameState.slotCount = data.enabled ? 3 : 2;
+
+        // Update existing players' slot arrays
+        this.gameState.players.forEach(p => {
+            const newSlots = new Array(this.gameState.slotCount).fill(null);
+            // Copy existing cards
+            for (let i = 0; i < Math.min(p.cards.length, newSlots.length); i++) {
+                newSlots[i] = p.cards[i];
+            }
+            p.cards = newSlots;
+        });
+
+        this.broadcast({
+            type: 'hardModeChanged',
+            hardMode: this.gameState.hardMode,
+            slotCount: this.gameState.slotCount,
+            players: this.gameState.players
+        });
     }
 
     // Swap two cards within same player (only if both slots have cards)
@@ -308,8 +336,9 @@ export default class GameServer {
     }
 
     handleReset(sender) {
+        const slotCount = this.gameState.slotCount;
         this.gameState.players.forEach(p => {
-            p.cards = [null, null];
+            p.cards = new Array(slotCount).fill(null);
             p.penalties = 0;
         });
 
@@ -323,7 +352,9 @@ export default class GameServer {
             type: 'gameReset',
             deck: this.gameState.deck,
             players: this.gameState.players,
-            discardHistory: []
+            discardHistory: [],
+            hardMode: this.gameState.hardMode,
+            slotCount: this.gameState.slotCount
         });
     }
 

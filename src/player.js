@@ -47,11 +47,13 @@ function createPlayerSlot(player, position, currentPlayerId, callbacks) {
 
     slot.appendChild(info);
 
-    // Card slots
+    // Card slots - use dynamic slot count
     const cardsContainer = document.createElement('div');
     cardsContainer.className = 'player-cards';
 
-    for (let i = 0; i < 2; i++) {
+    const slotCount = callbacks.slotCount || player.cards.length;
+
+    for (let i = 0; i < slotCount; i++) {
         const cardSlot = document.createElement('div');
         cardSlot.className = 'card-slot';
         cardSlot.dataset.slotIndex = i;

@@ -149,12 +149,17 @@ export class DragHandler {
 
         // Check for drop targets
         for (const el of elementsUnder) {
-            if (el.classList.contains('card-slot') && !el.classList.contains('occupied')) {
+            // Check for penalty zone
+            if (el.classList.contains('penalty-zone')) {
                 el.classList.add('drag-over');
                 break;
             }
-            if (el.classList.contains('penalty-zone')) {
-                el.classList.add('drag-over');
+            // Check for player-slot (highlight entire player area for flexible drops)
+            if (el.classList.contains('player-slot')) {
+                const hasEmptySlot = el.querySelector('.card-slot:not(.occupied)');
+                if (hasEmptySlot) {
+                    el.classList.add('drag-over');
+                }
                 break;
             }
         }
@@ -201,18 +206,23 @@ export class DragHandler {
         let dropTarget = null;
 
         for (const el of elementsUnder) {
+            // Check for penalty zone first
             if (el.classList.contains('penalty-zone')) {
                 dropTarget = { type: 'penalty' };
                 break;
             }
-            if (el.classList.contains('card-slot')) {
-                const playerSlot = el.closest('.player-slot');
-                dropTarget = {
-                    type: 'player',
-                    playerId: playerSlot?.dataset.playerId,
-                    slotIndex: parseInt(el.dataset.slotIndex),
-                    isEmpty: !el.classList.contains('occupied')
-                };
+            // Check for player-slot - find first empty slot within player area
+            // This allows dropping anywhere on a player's area
+            if (el.classList.contains('player-slot')) {
+                const emptySlot = el.querySelector('.card-slot:not(.occupied)');
+                if (emptySlot) {
+                    dropTarget = {
+                        type: 'player',
+                        playerId: el.dataset.playerId,
+                        slotIndex: parseInt(emptySlot.dataset.slotIndex),
+                        isEmpty: true
+                    };
+                }
                 break;
             }
         }

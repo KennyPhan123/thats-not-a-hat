@@ -69,6 +69,12 @@
                     <p>Players: <span id="playerCount">0</span>/8</p>
                     <div id="playerList" class="player-list"></div>
                 </div>
+                <div id="hardModeToggle" class="hard-mode-toggle hidden">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="hardModeCheckbox">
+                        <span class="toggle-text">Hard Mode (3 slots)</span>
+                    </label>
+                </div>
                 <button id="startGame" class="btn btn-primary hidden">Start Game</button>
                 <p class="waiting-text">Waiting for host to start...</p>
             </div>
@@ -91,6 +97,11 @@
             <div id="penaltyZone" class="penalty-zone">
                 <span class="penalty-text">Discard</span>
             </div>
+
+            <!-- Fullscreen button -->
+            <button id="fullscreenBtn" class="fullscreen-btn" title="Toggle Fullscreen">
+                <span class="fullscreen-icon">[ ]</span>
+            </button>
         </div>
 
         <!-- Game Over Modal -->
