@@ -15,6 +15,8 @@ export class DragHandler {
         this.offsetX = 0;
         this.offsetY = 0;
         this.dragData = null;
+        this.hasMoved = false; // Track if actual drag movement occurred
+        this.dragThreshold = 10; // Minimum pixels to move before considering it a drag
 
         this.bindEvents();
     }
@@ -42,7 +44,12 @@ export class DragHandler {
         // Prevent dragging during flip animation
         if (Date.now() - (card.lastTapTime || 0) < 300) return;
 
-        this.startDrag(card, e.clientX, e.clientY);
+        // Store pending drag info - don't start drag yet until movement detected
+        this.pendingDrag = {
+            card: card,
+            startX: e.clientX,
+            startY: e.clientY
+        };
     }
 
     handleTouchStart(e) {
@@ -56,11 +63,12 @@ export class DragHandler {
         card.touchStartTime = Date.now();
         this.touchStartCard = card;
 
-        // Delay drag start to allow for tap detection
-        this.dragTimeout = setTimeout(() => {
-            this.startDrag(card, touch.clientX, touch.clientY);
-            e.preventDefault();
-        }, 150);
+        // Store pending drag info - don't start drag yet until movement detected
+        this.pendingDrag = {
+            card: card,
+            startX: touch.clientX,
+            startY: touch.clientY
+        };
     }
 
     startDrag(card, x, y) {
@@ -98,29 +106,63 @@ export class DragHandler {
         }
 
         this.onDragStart(this.dragData);
+        this.hasMoved = false; // Reset movement tracking
     }
 
     handleMouseMove(e) {
+        // Check if we have a pending drag that hasn't started yet
+        if (this.pendingDrag && !this.isDragging) {
+            const deltaX = Math.abs(e.clientX - this.pendingDrag.startX);
+            const deltaY = Math.abs(e.clientY - this.pendingDrag.startY);
+
+            // Only start drag if movement exceeds threshold
+            if (deltaX > this.dragThreshold || deltaY > this.dragThreshold) {
+                this.startDrag(this.pendingDrag.card, this.pendingDrag.startX, this.pendingDrag.startY);
+                this.hasMoved = true; // Mark as moved since we passed threshold
+                this.pendingDrag = null;
+            }
+            return;
+        }
+
         if (!this.isDragging) return;
         this.moveDrag(e.clientX, e.clientY);
     }
 
     handleTouchMove(e) {
-        if (this.dragTimeout) {
-            clearTimeout(this.dragTimeout);
-            this.dragTimeout = null;
+        if (e.touches.length !== 1) return;
+
+        const touch = e.touches[0];
+
+        // Check if we have a pending drag that hasn't started yet
+        if (this.pendingDrag && !this.isDragging) {
+            const deltaX = Math.abs(touch.clientX - this.pendingDrag.startX);
+            const deltaY = Math.abs(touch.clientY - this.pendingDrag.startY);
+
+            // Only start drag if movement exceeds threshold
+            if (deltaX > this.dragThreshold || deltaY > this.dragThreshold) {
+                e.preventDefault();
+                this.startDrag(this.pendingDrag.card, this.pendingDrag.startX, this.pendingDrag.startY);
+                this.hasMoved = true; // Mark as moved since we passed threshold
+                this.pendingDrag = null;
+            }
+            return;
         }
 
         if (!this.isDragging) return;
-        if (e.touches.length !== 1) return;
 
         e.preventDefault();
-        const touch = e.touches[0];
         this.moveDrag(touch.clientX, touch.clientY);
     }
 
     moveDrag(x, y) {
         if (!this.dragClone) return;
+
+        // Check if movement exceeds threshold
+        const deltaX = Math.abs(x - this.startX);
+        const deltaY = Math.abs(y - this.startY);
+        if (deltaX > this.dragThreshold || deltaY > this.dragThreshold) {
+            this.hasMoved = true;
+        }
 
         this.dragClone.style.left = `${x - this.offsetX}px`;
         this.dragClone.style.top = `${y - this.offsetY}px`;
@@ -166,14 +208,19 @@ export class DragHandler {
     }
 
     handleMouseUp(e) {
+        // Clear pending drag if no actual drag started
+        if (this.pendingDrag) {
+            this.pendingDrag = null;
+        }
+
         if (!this.isDragging) return;
         this.endDrag(e.clientX, e.clientY);
     }
 
     handleTouchEnd(e) {
-        if (this.dragTimeout) {
-            clearTimeout(this.dragTimeout);
-            this.dragTimeout = null;
+        // Clear pending drag if no actual drag started
+        if (this.pendingDrag) {
+            this.pendingDrag = null;
         }
 
         if (!this.isDragging) return;
@@ -201,38 +248,43 @@ export class DragHandler {
             el.classList.remove('drag-over');
         });
 
-        // Find drop target
-        const elementsUnder = document.elementsFromPoint(x, y);
-        let dropTarget = null;
+        // Only process drop if actual movement occurred (not just a click/tap)
+        if (this.hasMoved) {
+            // Find drop target
+            const elementsUnder = document.elementsFromPoint(x, y);
+            let dropTarget = null;
 
-        for (const el of elementsUnder) {
-            // Check for penalty zone first
-            if (el.classList.contains('penalty-zone')) {
-                dropTarget = { type: 'penalty' };
-                break;
-            }
-            // Check for player-slot - find first empty slot within player area
-            // This allows dropping anywhere on a player's area
-            if (el.classList.contains('player-slot')) {
-                const emptySlot = el.querySelector('.card-slot:not(.occupied)');
-                if (emptySlot) {
-                    dropTarget = {
-                        type: 'player',
-                        playerId: el.dataset.playerId,
-                        slotIndex: parseInt(emptySlot.dataset.slotIndex),
-                        isEmpty: true
-                    };
+            for (const el of elementsUnder) {
+                // Check for penalty zone first
+                if (el.classList.contains('penalty-zone')) {
+                    dropTarget = { type: 'penalty' };
+                    break;
                 }
-                break;
+                // Check for player-slot - find first empty slot within player area
+                // This allows dropping anywhere on a player's area
+                if (el.classList.contains('player-slot')) {
+                    const emptySlot = el.querySelector('.card-slot:not(.occupied)');
+                    if (emptySlot) {
+                        dropTarget = {
+                            type: 'player',
+                            playerId: el.dataset.playerId,
+                            slotIndex: parseInt(emptySlot.dataset.slotIndex),
+                            isEmpty: true
+                        };
+                    }
+                    break;
+                }
             }
+
+            this.onDrop(this.dragData, dropTarget);
         }
 
-        this.onDrop(this.dragData, dropTarget);
         this.onDragEnd();
 
         this.isDragging = false;
         this.dragElement = null;
         this.dragData = null;
+        this.hasMoved = false;
     }
 
     destroy() {
