@@ -2,11 +2,10 @@
 
 An interactive online card game for 2-8 players. A sandbox-style implementation where players interact freely, just like in real life.
 
-## Play Now
+## Online Play
+**Play here:** https://tnah.kennyphan123.partykit.dev
 
-**Live Game:** https://thats-not-a-hat-server.kennyphan123.partykit.dev
-
-## About the Game
+## Setupt the Game
 
 That's Not a Hat is a memory and bluffing card game. Players draw cards, remember them, and pass them to other players face-down. The challenge is to remember what card you're receiving - or convincingly pretend you do!
 
