@@ -6,7 +6,7 @@ import { DragHandler } from './drag.js';
 import PartySocket from 'partysocket';
 
 // Use deployed PartyKit server
-const PARTYKIT_HOST = 'thats-not-a-hat-server.kennyphan123.partykit.dev';
+const PARTYKIT_HOST = 'tnah.kennyphan123.partykit.dev';
 
 // App State
 const state = {
